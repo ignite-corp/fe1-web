@@ -282,6 +282,7 @@ export const ALLOWED_FEHG_TO_HMG_EPIC_IDS = [
   1640, // [GW] [오픈 신규 스펙] 메일 알림 뱃지 숫자 정책 개선
   1748, // [GW] [오픈 신규 스펙] 중복 로그인
   2171,
+  2273,
 ] as const;
 
 // FEHG → AUTOWAY 동기화 허용 에픽 상세 정보
@@ -340,6 +341,8 @@ export const ALLOWED_FEHG_TO_HMG_EPIC_DATA = [
     summary: '[GW] [오픈 신규 스펙] 메일 알림 뱃지 숫자 정책 개선',
   },
   { id: 1748, summary: '[GW] [오픈 신규 스펙] 중복 로그인' },
+  { id: 2171, summary: '[GW] 오픈 전 Task 검토 리스트 (11/18 ~)' },
+  { id: 2273, summary: '[GW] 12/xx 비정기배포' },
 ] as const;
 
 // 보드 ID (스프린트 조회용)
