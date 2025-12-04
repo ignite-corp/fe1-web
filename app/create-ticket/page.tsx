@@ -18,11 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Plus, ExternalLink, Copy } from 'lucide-react';
+import { ArrowLeft, Plus, ExternalLink, Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { JIRA_USER_LIST, JIRA_ENDPOINTS } from '@/lib/constants/jira';
+import {
+  JIRA_USER_LIST,
+  JIRA_ENDPOINTS,
+  JIRA_USERS,
+} from '@/lib/constants/jira';
 import { jira } from '@/lib/services/jira';
 import { JiraIssue } from '@/lib/types/jira';
+import { SyncOrchestrator } from '@/lib/services/sync';
 
 export default function CreateTicketPage() {
   // 에픽 목록
@@ -41,6 +46,11 @@ export default function CreateTicketPage() {
   // 생성 상태
   const [isCreating, setIsCreating] = useState(false);
   const [createdTicketKey, setCreatedTicketKey] = useState<string>('');
+  const [createdTicketAssignee, setCreatedTicketAssignee] =
+    useState<string>('');
+
+  // 동기화 상태
+  const [isSyncingTicket, setIsSyncingTicket] = useState(false);
 
   // FEHG 완료되지 않은 에픽 조회 (페이지 로드 시)
   useEffect(() => {
@@ -152,11 +162,12 @@ export default function CreateTicketPage() {
       if (result.success && result.data) {
         const ticketKey = result.data.key;
         setCreatedTicketKey(ticketKey);
+        setCreatedTicketAssignee(assignee); // 생성된 티켓의 담당자 정보 저장
         toast.success(`티켓이 생성되었습니다! (${ticketKey})`, {
           duration: 5000,
         });
 
-        // 입력 필드 초기화
+        // 입력 필드 초기화 (다음 티켓 생성을 위해)
         setSummary('');
         setAssignee('');
         setEstimatedTime('');
@@ -188,6 +199,83 @@ export default function CreateTicketPage() {
       toast.success('티켓 링크가 클립보드에 복사되었습니다!');
     } catch {
       toast.error('복사에 실패했습니다.');
+    }
+  };
+
+  /**
+   * 생성된 티켓 동기화
+   * 메인 페이지의 '티켓 지정' 동기화와 동일한 로직 사용
+   * 티켓 생성 시 저장된 담당자 정보를 자동으로 사용
+   */
+  const handleSyncCreatedTicket = async () => {
+    // 유효성 검증
+    if (!createdTicketKey) {
+      toast.error('동기화할 티켓이 없습니다.');
+      return;
+    }
+
+    if (!createdTicketAssignee) {
+      toast.error('담당자 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    // 티켓 키에서 번호 추출 (예: FEHG-1234 → 1234)
+    const ticketIdMatch = createdTicketKey.match(/FEHG-(\d+)/);
+    if (!ticketIdMatch) {
+      toast.error('올바르지 않은 티켓 키 형식입니다.');
+      return;
+    }
+
+    const ticketId = ticketIdMatch[1];
+
+    // 사용자 정보 조회 (생성 시 저장된 담당자 사용)
+    const userInfo =
+      JIRA_USERS[createdTicketAssignee as keyof typeof JIRA_USERS];
+    if (!userInfo) {
+      toast.error('사용자 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    setIsSyncingTicket(true);
+
+    try {
+      toast.info(`${createdTicketKey} 티켓 동기화를 시작합니다...`);
+
+      // SyncOrchestrator 인스턴스 생성 (로그는 무시, 결과만 사용)
+      const orchestrator = new SyncOrchestrator();
+
+      // 티켓 지정 모드로 동기화 실행
+      const summary = await orchestrator.execute({
+        assigneeAccountId: userInfo.igniteAccountId,
+        ticketId,
+        chunkSize: 15,
+      });
+
+      // 결과 처리
+      if (summary.totalFailed === 0 && summary.totalSuccess > 0) {
+        const resultMessage =
+          summary.totalCreated > 0
+            ? `동기화 완료! ${summary.totalCreated}개 티켓 신규 생성`
+            : `동기화 완료! ${summary.totalUpdated}개 티켓 업데이트`;
+
+        toast.success(resultMessage, { duration: 5000 });
+      } else if (summary.totalSuccess > 0) {
+        toast.warning(
+          `동기화 완료 (성공: ${summary.totalSuccess}, 실패: ${summary.totalFailed})`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.error(
+          '동기화 대상 프로젝트가 없습니다. 티켓이 다른 프로젝트와 연결되어 있는지 확인하세요.',
+          { duration: 5000 }
+        );
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      toast.error(`동기화 실패: ${errorMessage}`, { duration: 5000 });
+    } finally {
+      setIsSyncingTicket(false);
     }
   };
 
@@ -386,15 +474,32 @@ export default function CreateTicketPage() {
                           {createdTicketKey} 티켓으로 이동
                           <ExternalLink className="h-4 w-4" />
                         </a>
-                        <Button
-                          onClick={handleCopyTicketLink}
-                          variant="outline"
-                          size="sm"
-                          className="w-fit"
-                        >
-                          <Copy className="mr-2 h-3 w-3" />
-                          티켓 링크 복사하기
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleCopyTicketLink}
+                            variant="outline"
+                            size="sm"
+                            className="w-fit"
+                            disabled={isSyncingTicket}
+                          >
+                            <Copy className="mr-2 h-3 w-3" />
+                            티켓 링크 복사하기
+                          </Button>
+                          <Button
+                            onClick={handleSyncCreatedTicket}
+                            variant="default"
+                            size="sm"
+                            className="w-fit"
+                            disabled={isSyncingTicket}
+                          >
+                            <RefreshCw
+                              className={`mr-2 h-3 w-3 ${isSyncingTicket ? 'animate-spin' : ''}`}
+                            />
+                            {isSyncingTicket
+                              ? '동기화 중...'
+                              : '티켓 동기화하기'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
