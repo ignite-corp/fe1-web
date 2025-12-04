@@ -8,7 +8,8 @@ import { HMGSyncService } from './hmg-sync.service';
 import { chunkArray } from './field-mapper';
 import { initSprintCache, preloadSprintCache } from './sprint-mapper';
 import { jira } from '@/lib/services/jira';
-import { JIRA_USERS, ALLOWED_FEHG_TO_HMG_EPIC_IDS } from '@/lib/constants/jira';
+import { JIRA_USERS } from '@/lib/constants/jira';
+import { ConfluenceEpicClient } from '@/lib/services/confluence/client';
 
 /**
  * 동기화 오케스트레이터
@@ -37,6 +38,21 @@ export class SyncOrchestrator {
       initSprintCache();
 
       this.logger.info('동기화 시작');
+
+      // Confluence Epic 목록 프리로드 (캐시 워밍업)
+      const preloadResult = await ConfluenceEpicClient.getAllowedEpics();
+      if (preloadResult.success && preloadResult.data) {
+        this.logger.info(
+          `Confluence Epic 목록 로드 완료: ${preloadResult.data.length}개`
+        );
+      } else {
+        this.logger.warning(
+          `Confluence Epic 목록 로드 실패: ${preloadResult.error || '알 수 없는 오류'}`
+        );
+        this.logger.warning(
+          '👉 AUTOWAY 동기화가 제한될 수 있습니다. Confluence 확인: https://ignitecorp.atlassian.net/wiki/spaces/IF/pages/2018738177'
+        );
+      }
 
       // 1. 대상 프로젝트 결정
       let targetProjects = options.targetProjects;
@@ -219,11 +235,23 @@ export class SyncOrchestrator {
         const parentKey = ticket.fields.parent?.key;
         const match = parentKey?.match(/FEHG-(\d+)/);
         const epicNumber = match ? parseInt(match[1], 10) : null;
-        const isAllowedEpic =
-          epicNumber &&
-          (ALLOWED_FEHG_TO_HMG_EPIC_IDS as readonly number[]).includes(
-            epicNumber
-          );
+
+        // Confluence에서 허용된 에픽 목록 조회
+        let isAllowedEpic = false;
+        if (epicNumber) {
+          const allowedEpicsResult =
+            await ConfluenceEpicClient.getAllowedEpics();
+          if (allowedEpicsResult.success && allowedEpicsResult.data) {
+            isAllowedEpic = allowedEpicsResult.data.some(
+              (epic) => epic.id === epicNumber
+            );
+          } else {
+            // Confluence 조회 실패 시 경고 로그
+            this.logger.warning(
+              `AUTOWAY 에픽 목록 조회 실패: ${allowedEpicsResult.error || '알 수 없는 오류'} - Confluence를 확인하세요: https://ignitecorp.atlassian.net/wiki/spaces/IF/pages/2018738177`
+            );
+          }
+        }
 
         if (hasAutowayLink || isAllowedEpic) {
           targets.push('AUTOWAY');
@@ -381,21 +409,36 @@ export class SyncOrchestrator {
         return ['AUTOWAY'];
       }
 
-      // 3. 상위 에픽 확인
+      // 3. 상위 에픽 확인 (Confluence에서 허용 목록 조회)
       const parentKey = ticket.fields.parent?.key;
       if (parentKey) {
         const match = parentKey.match(/FEHG-(\d+)/);
         if (match) {
           const epicNumber = parseInt(match[1], 10);
-          if (
-            (ALLOWED_FEHG_TO_HMG_EPIC_IDS as readonly number[]).includes(
-              epicNumber
-            )
-          ) {
-            this.logger.info(
-              `FEHG-${ticketId}: 허용된 에픽(${parentKey}) → AUTOWAY 동기화`
+
+          // Confluence에서 허용된 에픽 목록 조회
+          const allowedEpicsResult =
+            await ConfluenceEpicClient.getAllowedEpics();
+
+          if (!allowedEpicsResult.success || !allowedEpicsResult.data) {
+            this.logger.error(
+              `AUTOWAY 에픽 목록 조회 실패: ${allowedEpicsResult.error || '알 수 없는 오류'}`
             );
-            return ['AUTOWAY'];
+            this.logger.error(
+              '👉 Confluence 페이지 확인: https://ignitecorp.atlassian.net/wiki/spaces/IF/pages/2018738177'
+            );
+            // 조회 실패 시 해당 티켓은 AUTOWAY 대상에서 제외
+          } else {
+            const isAllowedEpic = allowedEpicsResult.data.some(
+              (epic) => epic.id === epicNumber
+            );
+
+            if (isAllowedEpic) {
+              this.logger.info(
+                `FEHG-${ticketId}: 허용된 에픽(${parentKey}) → AUTOWAY 동기화`
+              );
+              return ['AUTOWAY'];
+            }
           }
         }
       }
@@ -423,14 +466,31 @@ export class SyncOrchestrator {
       // 1. 에픽 ID 숫자 추출
       const epicNumber = parseInt(epicId, 10);
 
-      // 2. AUTOWAY 허용 목록 확인
-      if (
-        (ALLOWED_FEHG_TO_HMG_EPIC_IDS as readonly number[]).includes(epicNumber)
-      ) {
-        this.logger.info(
-          `FEHG-${epicId}: AUTOWAY 허용 에픽 → AUTOWAY만 동기화`
+      // 2. AUTOWAY 허용 목록 확인 (Confluence에서 조회)
+      const allowedEpicsResult = await ConfluenceEpicClient.getAllowedEpics();
+
+      if (!allowedEpicsResult.success || !allowedEpicsResult.data) {
+        this.logger.error(
+          `AUTOWAY 에픽 목록 조회 실패: ${allowedEpicsResult.error || '알 수 없는 오류'}`
         );
-        return ['AUTOWAY'];
+        this.logger.error(
+          '👉 Confluence 페이지 확인: https://ignitecorp.atlassian.net/wiki/spaces/IF/pages/2018738177'
+        );
+        this.logger.warning(
+          `FEHG-${epicId}: AUTOWAY 대상 여부 확인 불가 - 기본 프로젝트(KQ, HB, HDD)로 동기화`
+        );
+        // Confluence 조회 실패 시 AUTOWAY 제외하고 기본 프로젝트로 진행
+      } else {
+        const isAllowedEpic = allowedEpicsResult.data.some(
+          (epic) => epic.id === epicNumber
+        );
+
+        if (isAllowedEpic) {
+          this.logger.info(
+            `FEHG-${epicId}: AUTOWAY 허용 에픽 → AUTOWAY만 동기화`
+          );
+          return ['AUTOWAY'];
+        }
       }
 
       // 3. 에픽 정보 조회하여 summary 확인

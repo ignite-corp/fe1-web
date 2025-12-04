@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Home, Download } from 'lucide-react';
+import { Home, Download, FileText } from 'lucide-react';
 
 // Mermaid 타입 정의
 declare global {
@@ -343,12 +343,20 @@ flowchart TD
               자동화 작업의 전체 흐름을 시각화합니다
             </p>
           </div>
-          <Link href="/">
-            <Button variant="outline">
-              <Home className="mr-2 h-4 w-4" />
-              홈으로
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/templates">
+              <Button variant="outline">
+                <FileText className="mr-2 h-4 w-4" />
+                배포 템플릿
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline">
+                <Home className="mr-2 h-4 w-4" />
+                홈으로
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -437,6 +437,12 @@ export default function Home() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Link href="/templates">
+              <Button variant="outline">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                배포 템플릿
+              </Button>
+            </Link>
             <Link href="/flow-chart">
               <Button variant="outline">
                 <Network className="mr-2 h-4 w-4" />
