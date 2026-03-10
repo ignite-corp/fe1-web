@@ -58,3 +58,4 @@ node_modules/
 
 # Docs with secrets
 curl.md
+docs/auth-query.md
