@@ -13,8 +13,8 @@
 process.env.BATCH_MODE = 'true';
 
 import { SyncOrchestrator } from '@/lib/services/sync/sync-orchestrator';
-import { JIRA_USERS } from '@/lib/constants/jira';
 import { SyncSummary } from '@/lib/services/sync/types';
+import { getAllUsers } from '@/lib/services/user-lookup';
 
 interface UserSyncResult {
   name: string;
@@ -42,7 +42,7 @@ async function main() {
     process.exit(1);
   }
 
-  const users = Object.values(JIRA_USERS);
+  const users = await getAllUsers();
   const results: UserSyncResult[] = [];
 
   console.log(`대상 담당자: ${users.length}명`);
@@ -71,6 +71,8 @@ async function main() {
 
       const summary = await orchestrator.execute({
         assigneeAccountId: user.igniteAccountId,
+        assigneeName: user.name,
+        teamUsers: users,
         targetProjects: undefined, // 전체 (KQ, HDD, HB, AUTOWAY)
         chunkSize: 15,
       });

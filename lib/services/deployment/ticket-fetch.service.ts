@@ -6,7 +6,8 @@
 import axios from 'axios';
 import https from 'https';
 import { JiraIssue, JiraSearchResult } from '@/lib/types/jira';
-import { JIRA_USERS, JIRA_ENDPOINTS, JIRA_CONFIG } from '@/lib/constants/jira';
+import { JIRA_ENDPOINTS, JIRA_CONFIG } from '@/lib/constants/jira';
+import { getAllUsers, findUserByName } from '@/lib/services/user-lookup';
 
 const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
@@ -62,8 +63,9 @@ export async function fetchDeploymentTickets(
   try {
     const { project, userName, baseMonth } = request;
 
-    // 1. 사용자 정보 조회
-    const userInfo = JIRA_USERS[userName as keyof typeof JIRA_USERS];
+    // 1. 사용자 정보 조회 (DB)
+    const users = await getAllUsers();
+    const userInfo = findUserByName(users, userName);
     if (!userInfo) {
       return {
         success: false,
