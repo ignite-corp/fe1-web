@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
+import { UserProvider } from '@/contexts/user-context';
+import { GlobalHeaderStrip } from '@/components/global-header-strip';
 
 export const metadata: Metadata = {
   title: 'FE1 Jira 통합 관리',
@@ -15,8 +17,11 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
-        {children}
-        <Toaster />
+        <UserProvider>
+          <GlobalHeaderStrip />
+          {children}
+          <Toaster />
+        </UserProvider>
       </body>
     </html>
   );
