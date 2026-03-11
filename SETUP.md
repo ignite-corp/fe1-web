@@ -28,6 +28,25 @@ npm run dev
 
 ---
 
+## 주요 파일
+
+커스터마이징 시 가장 먼저 확인해야 할 파일들입니다.
+
+| 파일 | 역할 | 수정 시점 |
+|------|------|----------|
+| `lib/db.ts` | DB 클라이언트 설정 | DB 서비스 변경 시 |
+| `lib/constants/jira.ts` | Jira 인스턴스 URL/상수 | Jira 엔드포인트 변경 시 |
+| `lib/services/jira/client.ts` | Jira API 클라이언트 (프록시/직접 호출) | API 호출 방식 변경 시 |
+| `lib/services/sync/sync-orchestrator.ts` | 동기화 전체 흐름 관리 | 동기화 순서/조건 변경 시 |
+| `lib/services/sync/db-field-mapper.ts` | DB 기반 필드 매핑 변환 | 필드 변환 방식 변경 시 |
+| `lib/services/sync/transition-helper.ts` | 상태 전이 (BFS 최단경로) | 워크플로우 전이 로직 변경 시 |
+| `proxy.ts` | IP 접근 제한 | 허용 IP 대역 변경 시 |
+| `scripts/daily-sync.ts` | 일일 배치 동기화 스크립트 | 배치 로직 변경 시 |
+| `.github/workflows/daily-sync.yml` | 배치 스케줄 (GitHub Actions) | 실행 주기 변경 시 |
+| `supabase-init.sql` | DB 테이블 초기화 스크립트 | DB 스키마 확인/변경 시 |
+
+---
+
 ## 프로젝트 구조
 
 ```
@@ -86,6 +105,30 @@ npm run dev
 └── .github/workflows/
     └── daily-sync.yml            # GitHub Actions 배치 스케줄
 ```
+
+---
+
+## DB 초기화
+
+Supabase 프로젝트를 새로 생성한 뒤 아래 순서로 진행합니다.
+
+### 1. Supabase 프로젝트 생성
+1. [supabase.com](https://supabase.com) 에서 새 프로젝트 생성
+2. Project Settings > API에서 아래 값 확인:
+   - `Project URL` → `NEXT_PUBLIC_DB_URL`
+   - `anon public` → `NEXT_PUBLIC_DB_ANON_KEY`
+   - `service_role` → `DB_SERVICE_ROLE_KEY`
+
+### 2. 스키마 생성
+Supabase 대시보드 > SQL Editor에서 `supabase-init.sql` 실행
+
+이 파일 하나로 10개 테이블, 트리거, 인덱스, RLS 정책이 모두 생성됩니다.
+
+### 3. 환경변수 설정
+```bash
+cp .env.example .env.local
+```
+`.env.local`에 위에서 확인한 URL/KEY 값을 입력합니다.
 
 ---
 
@@ -180,18 +223,134 @@ schedule:
 
 ## DB 테이블 구조
 
-| 테이블 | 용도 |
-|--------|------|
-| `teams` | 팀 정보 |
-| `users` | 사용자 (Jira 계정 매핑, API Key) |
-| `projects` | 프로젝트 (Jira 프로젝트 키, 보드 ID, 인스턴스) |
-| `project_teams` | 프로젝트-팀 연결 |
-| `sync_profiles` | 동기화 프로필 (소스→대상 매핑 설정) |
-| `sync_field_mappings` | 필드 매핑 규칙 |
-| `sync_profile_allowed_epics` | 동기화 허용 에픽 목록 |
-| `sync_profile_status_mappings` | 상태 ID 매핑 |
-| `sync_profile_workflows` | 워크플로우 전이 규칙 |
-| `team_target_projects` | 팀별 동기화 대상 프로젝트 |
+> 전체 스키마: `supabase-init.sql` (이 파일 하나로 모든 테이블 생성)
+
+### teams — 팀 정보
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `id` | UUID (PK) | 팀 ID |
+| `name` | TEXT | 팀 이름 (UNIQUE) |
+| `source_project_id` | UUID (FK → projects) | 동기화 소스 프로젝트 |
+| `created_at` | TIMESTAMPTZ | 생성일시 |
+| `updated_at` | TIMESTAMPTZ | 수정일시 (자동 갱신) |
+
+### users — 사용자
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `id` | UUID (PK) | 사용자 ID |
+| `name` | TEXT | 사용자 이름 |
+| `team_id` | UUID (FK → teams) | 소속 팀 |
+| `ignite_account_id` | TEXT | Ignite Jira accountId |
+| `ignite_jira_email` | TEXT | Ignite Jira 인증 이메일 |
+| `ignite_jira_api_token` | TEXT | Ignite Jira API 토큰 |
+| `hmg_account_id` | TEXT | HMG Jira accountId |
+| `hmg_jira_email` | TEXT | HMG Jira 인증 이메일 |
+| `hmg_jira_api_token` | TEXT | HMG Jira API 토큰 |
+| `hmg_user_id` | TEXT | HMG 사번 |
+| `created_at` | TIMESTAMPTZ | 생성일시 |
+| `updated_at` | TIMESTAMPTZ | 수정일시 (자동 갱신) |
+
+### projects — Jira 프로젝트
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `id` | UUID (PK) | 프로젝트 ID |
+| `name` | TEXT | 프로젝트 이름 (예: FEHG, KQ) |
+| `jira_project_id` | TEXT | Jira 프로젝트 ID (UNIQUE) |
+| `jira_instance` | TEXT | Jira 인스턴스 (`'ignite'` / `'hmg'`) |
+| `board_id` | INTEGER | Jira 애자일 보드 ID |
+| `created_at` | TIMESTAMPTZ | 생성일시 |
+| `updated_at` | TIMESTAMPTZ | 수정일시 (자동 갱신) |
+
+### project_teams — 프로젝트-팀 연결 (N:N)
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `project_id` | UUID (PK, FK → projects) | 프로젝트 ID |
+| `team_id` | UUID (PK, FK → teams) | 팀 ID |
+
+### team_target_projects — 팀별 동기화 대상 프로젝트
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `team_id` | UUID (PK, FK → teams) | 팀 ID |
+| `project_id` | UUID (PK, FK → projects) | 대상 프로젝트 ID |
+| `sync_profile_id` | UUID (FK → sync_profiles) | 적용할 동기화 프로필 |
+
+### sync_profiles — 동기화 프로필
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `id` | UUID (PK) | 프로필 ID |
+| `name` | TEXT | 프로필 이름 |
+| `source_project_id` | UUID (FK → projects) | 소스 프로젝트 |
+| `target_project_id` | UUID (FK → projects) | 대상 프로젝트 |
+| `link_field` | TEXT | 이슈 링크용 커스텀 필드 (HMG 대상 시) |
+| `created_at` | TIMESTAMPTZ | 생성일시 |
+| `updated_at` | TIMESTAMPTZ | 수정일시 |
+
+### sync_field_mappings — 필드 매핑 규칙
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `profile_id` | UUID (FK → sync_profiles) | 소속 프로필 |
+| `source_field` | TEXT | 소스 필드 ID (예: `summary`, `customfield_10001`) |
+| `source_field_name` | TEXT | 소스 필드 표시명 |
+| `target_field` | TEXT | 대상 필드 ID |
+| `target_field_name` | TEXT | 대상 필드 표시명 |
+| `transform_type` | TEXT | 변환 타입 |
+| `transform_config` | JSONB | 변환 설정 (JSON) |
+
+### sync_profile_status_mappings — 상태 ID 매핑
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `profile_id` | UUID (FK → sync_profiles) | 소속 프로필 |
+| `source_status_id` | TEXT | 소스 상태 ID |
+| `source_status_name` | TEXT | 소스 상태명 (예: `진행 중`) |
+| `target_status_id` | TEXT | 대상 상태 ID |
+| `target_status_name` | TEXT | 대상 상태명 |
+
+### sync_profile_workflows — 워크플로우 전이 규칙
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `profile_id` | UUID (FK → sync_profiles) | 소속 프로필 |
+| `from_status_id` | TEXT | 출발 상태 ID |
+| `from_status_name` | TEXT | 출발 상태명 |
+| `to_status_id` | TEXT | 도착 상태 ID |
+| `to_status_name` | TEXT | 도착 상태명 |
+| `transition_id` | TEXT | Jira 전이 ID |
+
+> BFS 최단경로 탐색에 사용됩니다. 현재 상태에서 목표 상태로 가기 위해 거쳐야 하는 전이 경로를 자동 계산합니다.
+
+### sync_profile_allowed_epics — 동기화 허용 에픽 목록
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `profile_id` | UUID (FK → sync_profiles) | 소속 프로필 |
+| `epic_key` | TEXT | 에픽 이슈 키 (예: `FEHG-100`) |
+| `epic_summary` | TEXT | 에픽 제목 |
+
+> 이 목록이 비어있으면 모든 에픽이 동기화 대상입니다.
+
+### 테이블 관계도
+
+```
+teams ─────────┐
+  │ source_project_id    │
+  ▼              │
+projects ◄──── project_teams (N:N)
+  ▲
+  │
+team_target_projects ──► sync_profiles
+                           │
+                ┌──────────┼──────────┬──────────┐
+                ▼          ▼          ▼          ▼
+          field_mappings  status_mappings  workflows  allowed_epics
+```
 
 ---
 
