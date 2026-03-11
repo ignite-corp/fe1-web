@@ -1,4 +1,4 @@
-import { supabaseServer } from '@/lib/supabase-server';
+import { dbServer } from '@/lib/db';
 
 interface JiraCredentials {
   email: string;
@@ -17,7 +17,7 @@ export async function resolveJiraCredentials(
     return null;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('users')
     .select('ignite_jira_email, ignite_jira_api_token, hmg_jira_email, hmg_jira_api_token')
     .eq('id', userId)

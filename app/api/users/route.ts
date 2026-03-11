@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase-server';
+import { dbServer } from '@/lib/db';
 
 export async function GET() {
-  const { data, error } = await supabaseServer
+  const { data, error } = await dbServer
     .from('users')
     .select('*, teams:team_id(id, name, source_project:source_project_id(name))')
     .order('name');

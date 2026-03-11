@@ -2,7 +2,7 @@
 
 import { SprintInfo } from './types';
 import { JiraClient } from '@/lib/services/jira/client';
-import { supabaseServer } from '@/lib/supabase-server';
+import { dbServer } from '@/lib/db';
 
 /**
  * 스프린트 캐시 클래스
@@ -63,7 +63,7 @@ async function getBoardId(projectKey: string): Promise<number | null> {
     return boardIdCache.get(projectKey)!;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('projects')
     .select('board_id')
     .eq('name', projectKey)

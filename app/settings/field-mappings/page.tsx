@@ -32,7 +32,7 @@ import {
   Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/db';
 import { jiraFetch } from '@/lib/jira-fetch';
 
 // ── 타입 ──
@@ -334,16 +334,16 @@ export default function FieldMappingsPage() {
 
   const fetchData = useCallback(async () => {
     const [projectsRes, profilesRes, mappingsRes, epicsRes, statusRes, workflowRes, teamsRes] = await Promise.all([
-      supabase.from('projects').select('id, name, jira_instance').order('name'),
-      supabase
+      db.from('projects').select('id, name, jira_instance').order('name'),
+      db
         .from('sync_profiles')
         .select('*')
         .order('created_at', { ascending: false }),
-      supabase.from('sync_field_mappings').select('profile_id'),
-      supabase.from('sync_profile_allowed_epics').select('profile_id'),
-      supabase.from('sync_profile_status_mappings').select('profile_id'),
-      supabase.from('sync_profile_workflows').select('profile_id'),
-      supabase.from('teams').select('source_project_id').not('source_project_id', 'is', null),
+      db.from('sync_field_mappings').select('profile_id'),
+      db.from('sync_profile_allowed_epics').select('profile_id'),
+      db.from('sync_profile_status_mappings').select('profile_id'),
+      db.from('sync_profile_workflows').select('profile_id'),
+      db.from('teams').select('source_project_id').not('source_project_id', 'is', null),
     ]);
 
     // 팀에서 기준 프로젝트로 사용 중인 프로젝트 ID 수집
@@ -704,7 +704,7 @@ export default function FieldMappingsPage() {
 
       if (editingId) {
         // 프로필 업데이트
-        const { error } = await supabase
+        const { error } = await db
           .from('sync_profiles')
           .update({
             name: formName.trim(),
@@ -722,31 +722,31 @@ export default function FieldMappingsPage() {
         }
 
         // 기존 매핑 삭제
-        await supabase
+        await db
           .from('sync_field_mappings')
           .delete()
           .eq('profile_id', editingId);
 
         // HMG: 기존 에픽 삭제 후 재삽입
         if (isHmgTarget) {
-          await supabase
+          await db
             .from('sync_profile_allowed_epics')
             .delete()
             .eq('profile_id', editingId);
         }
 
         // 기존 상태 매핑 & 워크플로우 삭제
-        await supabase
+        await db
           .from('sync_profile_status_mappings')
           .delete()
           .eq('profile_id', editingId);
-        await supabase
+        await db
           .from('sync_profile_workflows')
           .delete()
           .eq('profile_id', editingId);
       } else {
         // 새 프로필 생성
-        const { data, error } = await supabase
+        const { data, error } = await db
           .from('sync_profiles')
           .insert({
             name: formName.trim(),
@@ -771,7 +771,7 @@ export default function FieldMappingsPage() {
 
       // 필드 매핑 저장
       if (pendingMappings.length > 0 && profileId) {
-        const { error: mappingError } = await supabase
+        const { error: mappingError } = await db
           .from('sync_field_mappings')
           .insert(
             pendingMappings.map((m) => ({
@@ -793,7 +793,7 @@ export default function FieldMappingsPage() {
 
       // HMG: 허용 에픽 저장
       if (isHmgTarget && selectedEpics.length > 0 && profileId) {
-        const { error: epicError } = await supabase
+        const { error: epicError } = await db
           .from('sync_profile_allowed_epics')
           .insert(
             selectedEpics.map((e) => ({
@@ -811,7 +811,7 @@ export default function FieldMappingsPage() {
 
       // 상태 매핑 저장
       if (pendingStatusMappings.length > 0 && profileId) {
-        const { error: smError } = await supabase
+        const { error: smError } = await db
           .from('sync_profile_status_mappings')
           .insert(
             pendingStatusMappings.map((s) => ({
@@ -839,7 +839,7 @@ export default function FieldMappingsPage() {
             targetStatuses
           );
           if (workflows.length > 0) {
-            const { error: wfError } = await supabase
+            const { error: wfError } = await db
               .from('sync_profile_workflows')
               .insert(
                 workflows.map((w) => ({
@@ -899,7 +899,7 @@ export default function FieldMappingsPage() {
     const targetInst = projects.find((p) => p.id === profile.targetProjectId)?.jiraInstance;
     if (targetInst === 'hmg') {
       // 허용 에픽 로드
-      const { data: epicsData } = await supabase
+      const { data: epicsData } = await db
         .from('sync_profile_allowed_epics')
         .select('epic_key, epic_summary')
         .eq('profile_id', profile.id);
@@ -911,7 +911,7 @@ export default function FieldMappingsPage() {
     }
 
     // 상태 매핑 & 워크플로우 로드
-    const { data: statusData } = await supabase
+    const { data: statusData } = await db
       .from('sync_profile_status_mappings')
       .select('source_status_id, source_status_name, target_status_id, target_status_name')
       .eq('profile_id', profile.id);
@@ -927,7 +927,7 @@ export default function FieldMappingsPage() {
     }
 
     // 기존 매핑 로드
-    const { data } = await supabase
+    const { data } = await db
       .from('sync_field_mappings')
       .select('source_field, target_field')
       .eq('profile_id', profile.id);
@@ -972,7 +972,7 @@ export default function FieldMappingsPage() {
   }, [sourceFields, targetFields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async (profile: SyncProfile) => {
-    const { error } = await supabase
+    const { error } = await db
       .from('sync_profiles')
       .delete()
       .eq('id', profile.id);
@@ -1020,7 +1020,7 @@ export default function FieldMappingsPage() {
     setLoadingExpanded(true);
     setExpandedMappings([]);
 
-    const { data } = await supabase
+    const { data } = await db
       .from('sync_field_mappings')
       .select('source_field, source_field_name, target_field, target_field_name, transform_type')
       .eq('profile_id', profileId);

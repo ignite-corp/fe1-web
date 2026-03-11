@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Plus, Pencil, Trash2, Check, Loader2, Search, CircleCheck, CircleX } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/db';
 import { jiraFetch } from '@/lib/jira-fetch';
 
 interface Team {
@@ -65,9 +65,9 @@ export default function ProjectsPage() {
 
   const fetchData = useCallback(async () => {
     const [teamsRes, projectsRes, ptRes] = await Promise.all([
-      supabase.from('teams').select('id, name').order('name'),
-      supabase.from('projects').select('*').order('name'),
-      supabase.from('project_teams').select('project_id, team_id'),
+      db.from('teams').select('id, name').order('name'),
+      db.from('projects').select('*').order('name'),
+      db.from('project_teams').select('project_id, team_id'),
     ]);
 
     if (teamsRes.data) setTeams(teamsRes.data);
@@ -196,7 +196,7 @@ export default function ProjectsPage() {
     }
 
     setSaving(true);
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('projects')
       .insert({
         name: form.name.trim(),
@@ -214,7 +214,7 @@ export default function ProjectsPage() {
     }
 
     if (form.teamIds.length > 0) {
-      await supabase.from('project_teams').insert(
+      await db.from('project_teams').insert(
         form.teamIds.map((teamId) => ({
           project_id: data.id,
           team_id: teamId,
@@ -252,7 +252,7 @@ export default function ProjectsPage() {
     }
 
     setSaving(true);
-    const { error } = await supabase
+    const { error } = await db
       .from('projects')
       .update({
         name: form.name.trim(),
@@ -268,9 +268,9 @@ export default function ProjectsPage() {
       return;
     }
 
-    await supabase.from('project_teams').delete().eq('project_id', editingId!);
+    await db.from('project_teams').delete().eq('project_id', editingId!);
     if (form.teamIds.length > 0) {
-      await supabase.from('project_teams').insert(
+      await db.from('project_teams').insert(
         form.teamIds.map((teamId) => ({
           project_id: editingId!,
           team_id: teamId,
@@ -285,7 +285,7 @@ export default function ProjectsPage() {
   };
 
   const handleDelete = async (project: Project) => {
-    const { error } = await supabase
+    const { error } = await db
       .from('projects')
       .delete()
       .eq('id', project.id);

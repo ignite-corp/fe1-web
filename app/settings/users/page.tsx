@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Pencil, Trash2, Check, Loader2, Search, CircleCheck, CircleX, RotateCcw, AlertTriangle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/db';
 import { useCurrentUser } from '@/contexts/user-context';
 
 interface Team {
@@ -93,8 +93,8 @@ export default function UsersPage() {
 
   const fetchData = useCallback(async () => {
     const [teamsRes, usersRes] = await Promise.all([
-      supabase.from('teams').select('id, name').order('name'),
-      supabase.from('users').select('*').order('name'),
+      db.from('teams').select('id, name').order('name'),
+      db.from('users').select('*').order('name'),
     ]);
 
     if (teamsRes.data) setTeams(teamsRes.data);
@@ -264,7 +264,7 @@ export default function UsersPage() {
     }
 
     setSaving(true);
-    const { error } = await supabase.from('users').insert(toDbRow());
+    const { error } = await db.from('users').insert(toDbRow());
     setSaving(false);
 
     if (error) {
@@ -318,7 +318,7 @@ export default function UsersPage() {
     }
 
     setSaving(true);
-    const { error } = await supabase
+    const { error } = await db
       .from('users')
       .update(toDbRow())
       .eq('id', editingId);
@@ -353,7 +353,7 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (user: User) => {
-    const { error } = await supabase.from('users').delete().eq('id', user.id);
+    const { error } = await db.from('users').delete().eq('id', user.id);
     if (error) {
       toast.error(`삭제 실패: ${error.message}`);
       return;

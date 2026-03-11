@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { AlertTriangle, UserRoundCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/contexts/user-context';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/db';
 
 interface Warning {
   message: string;
@@ -30,7 +30,7 @@ export function GlobalHeaderStrip() {
       return;
     }
 
-    supabase
+    db
       .from('team_target_projects')
       .select('sync_profile_id')
       .eq('team_id', currentUser.teamId)

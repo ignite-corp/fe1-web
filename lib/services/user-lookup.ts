@@ -3,7 +3,7 @@
  * JIRA_USERS 상수를 대체합니다.
  */
 
-import { supabaseServer } from '@/lib/supabase-server';
+import { dbServer } from '@/lib/db';
 
 export interface DbUser {
   name: string;
@@ -16,7 +16,7 @@ export interface DbUser {
  * 특정 팀에 소속된 사용자 목록 조회
  */
 export async function getTeamUsers(teamId: string): Promise<DbUser[]> {
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('users')
     .select('name, ignite_account_id, hmg_account_id, hmg_user_id')
     .eq('team_id', teamId)
@@ -36,7 +36,7 @@ export async function getTeamUsers(teamId: string): Promise<DbUser[]> {
  * 전체 사용자 목록 조회 (배치용)
  */
 export async function getAllUsers(): Promise<DbUser[]> {
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('users')
     .select('name, ignite_account_id, hmg_account_id, hmg_user_id')
     .order('name');

@@ -36,7 +36,7 @@ import {
   SyncResult,
   SyncTargetProject,
 } from '@/lib/services/sync';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/db';
 import { jira } from '@/lib/services/jira';
 import { JiraIssue } from '@/lib/types/jira';
 
@@ -112,7 +112,7 @@ export default function Home() {
     if (!currentUser?.teamId) return;
 
     // 사용자 목록 조회
-    supabase
+    db
       .from('users')
       .select('name, ignite_account_id, hmg_account_id, hmg_user_id')
       .eq('team_id', currentUser.teamId)
@@ -131,7 +131,7 @@ export default function Home() {
     // 팀 동기화 대상 + 필드 매핑 조회
     const loadTeamTargets = async () => {
       // 팀의 기준 프로젝트 조회
-      const { data: teamData } = await supabase
+      const { data: teamData } = await db
         .from('teams')
         .select('source_project_id')
         .eq('id', currentUser.teamId)
@@ -140,13 +140,13 @@ export default function Home() {
       if (!teamData?.source_project_id) return;
 
       // 프로젝트 이름 맵
-      const { data: projects } = await supabase
+      const { data: projects } = await db
         .from('projects')
         .select('id, name');
       const projectMap = new Map(projects?.map((p) => [p.id, p.name]) || []);
 
       // 팀 대상 프로젝트 + sync_profile 조회
-      const { data: targets } = await supabase
+      const { data: targets } = await db
         .from('team_target_projects')
         .select('project_id, sync_profile_id')
         .eq('team_id', currentUser.teamId);
@@ -160,7 +160,7 @@ export default function Home() {
 
       const profileMap = new Map<string, string>();
       if (profileIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await db
           .from('sync_profiles')
           .select('id, name')
           .in('id', profileIds);

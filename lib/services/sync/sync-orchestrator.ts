@@ -11,7 +11,7 @@ import { clearDbMappingCache, getSyncProfileInfo, getAllowedEpicsFromDb } from '
 import { clearTransitionCache } from './transition-helper';
 import { jira } from '@/lib/services/jira';
 import { ConfluenceEpicClient } from '@/lib/services/confluence/client';
-import { supabaseServer } from '@/lib/supabase-server';
+import { dbServer } from '@/lib/db';
 
 /**
  * 동기화 오케스트레이터
@@ -608,7 +608,7 @@ export class SyncOrchestrator {
     }
 
     // target이 hmg 인스턴스인 프로필 조회 (projects 테이블 조인)
-    const { data: hmgProjects } = await supabaseServer
+    const { data: hmgProjects } = await dbServer
       .from('projects')
       .select('id')
       .eq('jira_instance', 'hmg');
@@ -619,7 +619,7 @@ export class SyncOrchestrator {
     }
 
     const hmgProjectIds = hmgProjects.map((p) => p.id);
-    const { data } = await supabaseServer
+    const { data } = await dbServer
       .from('sync_profiles')
       .select('id')
       .in('target_project_id', hmgProjectIds)

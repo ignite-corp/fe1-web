@@ -32,7 +32,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { db } from '@/lib/db';
 
 // --- 타입 ---
 
@@ -85,11 +85,11 @@ export default function TeamsPage() {
   const fetchData = useCallback(async () => {
     const [projectsRes, usersRes, teamsRes, targetsRes, profilesRes] =
       await Promise.all([
-        supabase.from('projects').select('id, name, jira_instance').order('name'),
-        supabase.from('users').select('id, name, team_id').order('name'),
-        supabase.from('teams').select('id, name, source_project_id, created_at').order('name'),
-        supabase.from('team_target_projects').select('team_id, project_id, sync_profile_id'),
-        supabase
+        db.from('projects').select('id, name, jira_instance').order('name'),
+        db.from('users').select('id, name, team_id').order('name'),
+        db.from('teams').select('id, name, source_project_id, created_at').order('name'),
+        db.from('team_target_projects').select('team_id, project_id, sync_profile_id'),
+        db
           .from('sync_profiles')
           .select('id, name, source_project_id, target_project_id')
           .order('name'),
@@ -167,7 +167,7 @@ export default function TeamsPage() {
       return;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('teams')
       .insert({ name })
       .select('id, name, source_project_id, created_at')
@@ -192,7 +192,7 @@ export default function TeamsPage() {
   // --- 팀 삭제 ---
 
   const handleDelete = async (team: Team) => {
-    const { error } = await supabase.from('teams').delete().eq('id', team.id);
+    const { error } = await db.from('teams').delete().eq('id', team.id);
     if (error) {
       toast.error(`삭제 실패: ${error.message}`);
       return;
@@ -209,19 +209,19 @@ export default function TeamsPage() {
     setSaving(true);
     try {
       // 1. 팀 기본 정보 업데이트
-      await supabase
+      await db
         .from('teams')
         .update({ source_project_id: team.sourceProjectId })
         .eq('id', team.id);
 
       // 2. team_target_projects 전체 삭제 후 재삽입
-      await supabase
+      await db
         .from('team_target_projects')
         .delete()
         .eq('team_id', team.id);
 
       if (team.targets.length > 0) {
-        await supabase.from('team_target_projects').insert(
+        await db.from('team_target_projects').insert(
           team.targets.map((t) => ({
             team_id: team.id,
             project_id: t.projectId,
@@ -232,7 +232,7 @@ export default function TeamsPage() {
 
       // 3. 사용자 team_id 업데이트
       // 먼저 이 팀에서 빠진 사용자 해제
-      await supabase
+      await db
         .from('users')
         .update({ team_id: null })
         .eq('team_id', team.id)
@@ -241,7 +241,7 @@ export default function TeamsPage() {
       // 새로 추가된 사용자 연결
       if (team.memberIds.length > 0) {
         for (const userId of team.memberIds) {
-          await supabase
+          await db
             .from('users')
             .update({ team_id: team.id })
             .eq('id', userId);

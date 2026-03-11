@@ -2,7 +2,7 @@
 // sync_field_mappings 테이블에서 매핑 규칙을 읽어 필드를 변환
 
 import { JiraIssue } from '@/lib/types/jira';
-import { supabaseServer } from '@/lib/supabase-server';
+import { dbServer } from '@/lib/db';
 import { mapSprintToTarget } from './sprint-mapper';
 
 interface DbFieldMapping {
@@ -23,7 +23,7 @@ async function getFieldMappings(profileId: string): Promise<DbFieldMapping[]> {
     return mappingCache.get(profileId)!;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('sync_field_mappings')
     .select('source_field, target_field, transform_type, transform_config')
     .eq('profile_id', profileId);
@@ -130,7 +130,7 @@ async function lookupHmgAccountId(igniteAccountId: string): Promise<string | nul
     return accountMapCache.get(igniteAccountId)!;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('users')
     .select('hmg_account_id')
     .eq('ignite_account_id', igniteAccountId)
@@ -161,7 +161,7 @@ export async function getSyncProfileInfo(profileId: string): Promise<SyncProfile
     return profileInfoCache.get(profileId)!;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('sync_profiles')
     .select(`
       id, name, link_field,
@@ -200,7 +200,7 @@ export async function getAllowedEpicsFromDb(profileId: string): Promise<string[]
     return allowedEpicsCache.get(profileId)!;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('sync_profile_allowed_epics')
     .select('epic_key')
     .eq('profile_id', profileId);

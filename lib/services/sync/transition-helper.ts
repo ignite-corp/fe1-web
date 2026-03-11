@@ -4,7 +4,7 @@
  */
 
 import { STATUS_WORKFLOW, STATUS_TARGET_MAPPING } from '@/lib/constants/jira';
-import { supabaseServer } from '@/lib/supabase-server';
+import { dbServer } from '@/lib/db';
 
 export type JiraInstance = 'ignite' | 'hmg';
 
@@ -25,7 +25,7 @@ async function getDbStatusMapping(profileId: string): Promise<Record<string, str
     return dbStatusMappingCache.get(profileId)!;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('sync_profile_status_mappings')
     .select('source_status_id, target_status_id')
     .eq('profile_id', profileId);
@@ -47,7 +47,7 @@ async function getDbWorkflow(profileId: string): Promise<Record<string, Record<s
     return dbWorkflowCache.get(profileId)!;
   }
 
-  const { data } = await supabaseServer
+  const { data } = await dbServer
     .from('sync_profile_workflows')
     .select('from_status_id, to_status_id, transition_id')
     .eq('profile_id', profileId);
