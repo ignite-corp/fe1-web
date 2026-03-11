@@ -34,6 +34,8 @@ async function main() {
     'IGNITE_JIRA_API_TOKEN',
     'HMG_JIRA_EMAIL',
     'HMG_JIRA_API_TOKEN',
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
   ];
 
   const missingVars = requiredEnvVars.filter((v) => !process.env[v]);

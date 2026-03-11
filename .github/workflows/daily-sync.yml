@@ -31,4 +31,6 @@ jobs:
           IGNITE_JIRA_API_TOKEN: ${{ secrets.IGNITE_JIRA_API_TOKEN }}
           HMG_JIRA_EMAIL: ${{ secrets.HMG_JIRA_EMAIL }}
           HMG_JIRA_API_TOKEN: ${{ secrets.HMG_JIRA_API_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/daily-sync.ts
