@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { jiraFetch } from '@/lib/jira-fetch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,8 +22,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { JIRA_ENDPOINTS } from '@/lib/constants/jira';
+import { useCurrentUser } from '@/contexts/user-context';
 
 export default function CreateEpicPage() {
+  const { currentUser } = useCurrentUser();
+  const sourceProject = currentUser?.sourceProject || 'FEHG';
   // 입력 필드
   const [isAutowayEpic, setIsAutowayEpic] = useState<boolean>(true);
   const [summary, setSummary] = useState<string>('');
@@ -50,31 +54,30 @@ export default function CreateEpicPage() {
     try {
       toast.info(`"${summary}" 에픽 생성을 시작합니다...`);
 
-      // 1. FEHG 에픽 생성
+      // 1. 소스 프로젝트 에픽 생성
       const fehgPayload = {
         fields: {
-          project: { key: 'FEHG' },
+          project: { key: sourceProject },
           summary,
           issuetype: { id: '10365' }, // 에픽 타입 ID
         },
       };
 
-      const fehgResponse = await fetch('/api/jira/ignite/issue', {
+      const fehgResponse = await jiraFetch('/api/jira/ignite/issue', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fehgPayload),
       });
 
       const fehgResult = await fehgResponse.json();
 
       if (!fehgResult.success || !fehgResult.data) {
-        toast.error(fehgResult.error || 'FEHG 에픽 생성에 실패했습니다.');
+        toast.error(fehgResult.error || `${sourceProject} 에픽 생성에 실패했습니다.`);
         return;
       }
 
       const fehgEpicKey = fehgResult.data.key;
       setCreatedFehgEpicKey(fehgEpicKey);
-      toast.success(`FEHG 에픽이 생성되었습니다! (${fehgEpicKey})`, {
+      toast.success(`${sourceProject} 에픽이 생성되었습니다! (${fehgEpicKey})`, {
         duration: 3000,
       });
 
@@ -85,7 +88,7 @@ export default function CreateEpicPage() {
         const autowayPayload = {
           fields: {
             project: { key: 'AUTOWAY' },
-            summary: `[FEHG] ${summary}`,
+            summary: `[${sourceProject}] ${summary}`,
             // AUTOWAY 프로젝트 이슈 타입은 로캘/설정에 따라 달라질 수 있으나,
             // 프로젝트 메타데이터상 "에픽"이 존재하므로 에픽 생성은 "에픽"으로 고정합니다.
             issuetype: { name: '에픽' },
@@ -98,7 +101,7 @@ export default function CreateEpicPage() {
                   content: [
                     {
                       type: 'text',
-                      text: '[자동 생성] FEHG 에픽 연동',
+                      text: `[자동 생성] ${sourceProject} 에픽 연동`,
                     },
                   ],
                 },
@@ -107,7 +110,7 @@ export default function CreateEpicPage() {
                   content: [
                     {
                       type: 'text',
-                      text: '원본 FEHG 에픽: ',
+                      text: `원본 ${sourceProject} 에픽: `,
                       marks: [{ type: 'strong' }],
                     },
                     {
@@ -142,9 +145,8 @@ export default function CreateEpicPage() {
           },
         };
 
-        const autowayResponse = await fetch('/api/jira/hmg/issue', {
+        const autowayResponse = await jiraFetch('/api/jira/hmg/issue', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(autowayPayload),
         });
 
@@ -163,8 +165,8 @@ export default function CreateEpicPage() {
           duration: 3000,
         });
 
-        // 3. FEHG 에픽에 AUTOWAY 링크 저장
-        toast.info('FEHG 에픽과 AUTOWAY 에픽을 연결하는 중...');
+        // 3. 소스 에픽에 AUTOWAY 링크 저장
+        toast.info(`${sourceProject} 에픽과 AUTOWAY 에픽을 연결하는 중...`);
 
         const autowayUrl = `${JIRA_ENDPOINTS.HMG}/browse/${autowayEpicKey}`;
         const linkPayload = {
@@ -173,11 +175,10 @@ export default function CreateEpicPage() {
           },
         };
 
-        const linkResponse = await fetch(
+        const linkResponse = await jiraFetch(
           `/api/jira/ignite/issue/${fehgEpicKey}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(linkPayload),
           }
         );
@@ -185,7 +186,7 @@ export default function CreateEpicPage() {
         const linkResult = await linkResponse.json();
 
         if (linkResult.success) {
-          toast.success('FEHG와 AUTOWAY 에픽이 연결되었습니다!', {
+          toast.success(`${sourceProject}와 AUTOWAY 에픽이 연결되었습니다!`, {
             duration: 3000,
           });
         } else {
@@ -211,14 +212,14 @@ export default function CreateEpicPage() {
   };
 
   /**
-   * FEHG 에픽 링크 복사
+   * 소스 에픽 링크 복사
    */
   const handleCopyFehgLink = async () => {
     if (!createdFehgEpicKey) return;
     const url = `${JIRA_ENDPOINTS.IGNITE}/browse/${createdFehgEpicKey}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success('FEHG 에픽 링크가 복사되었습니다!');
+      toast.success(`${sourceProject} 에픽 링크가 복사되었습니다!`);
     } catch {
       toast.error('복사에 실패했습니다.');
     }
@@ -251,9 +252,9 @@ export default function CreateEpicPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold">FEHG 에픽 생성</h1>
+              <h1 className="text-2xl font-bold">{sourceProject} 에픽 생성</h1>
               <p className="text-sm text-muted-foreground">
-                새로운 FEHG 에픽을 생성합니다 (팀장용)
+                새로운 {sourceProject} 에픽을 생성합니다 (팀장용)
               </p>
             </div>
           </div>
@@ -320,8 +321,8 @@ export default function CreateEpicPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 {isAutowayEpic
-                  ? '✅ FEHG와 AUTOWAY 양쪽에 에픽이 생성되고 자동으로 연결됩니다'
-                  : 'ℹ️ FEHG에만 에픽이 생성됩니다'}
+                  ? `✅ ${sourceProject}와 AUTOWAY 양쪽에 에픽이 생성되고 자동으로 연결됩니다`
+                  : `ℹ️ ${sourceProject}에만 에픽이 생성됩니다`}
               </p>
             </div>
 
@@ -341,7 +342,7 @@ export default function CreateEpicPage() {
                 {summary.length}/200자
                 {isAutowayEpic && summary && (
                   <span className="ml-2 text-blue-600">
-                    → AUTOWAY: [FEHG] {summary}
+                    → AUTOWAY: [{sourceProject}] {summary}
                   </span>
                 )}
               </p>
@@ -368,7 +369,7 @@ export default function CreateEpicPage() {
                 {/* FEHG 에픽 */}
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
                   <p className="text-sm font-semibold text-green-900">
-                    ✓ FEHG 에픽 생성 완료!
+                    ✓ {sourceProject} 에픽 생성 완료!
                   </p>
                   <div className="flex flex-col gap-2">
                     <a
@@ -387,7 +388,7 @@ export default function CreateEpicPage() {
                       className="w-fit"
                     >
                       <Copy className="mr-2 h-3 w-3" />
-                      FEHG 링크 복사
+                      {sourceProject} 링크 복사
                     </Button>
                   </div>
                 </div>
@@ -419,7 +420,7 @@ export default function CreateEpicPage() {
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      ✅ FEHG 에픽의 customfield_10306에 AUTOWAY URL이
+                      ✅ {sourceProject} 에픽의 customfield_10306에 AUTOWAY URL이
                       저장되었습니다
                     </p>
                   </div>
@@ -444,7 +445,7 @@ export default function CreateEpicPage() {
                       <ExternalLink className="h-3 w-3" />
                     </a>
                     <div className="mt-2 p-2 bg-white rounded border text-xs font-mono">
-                      {`{"id": ${createdFehgEpicKey.replace('FEHG-', '')}, "summary": "${summary}", "active": true}`}
+                      {`{"id": ${createdFehgEpicKey.replace(`${sourceProject}-`, '')}, "summary": "${summary}", "active": true}`}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       ↑ 위 JSON을 복사하여 Confluence 페이지의 배열에 추가하세요

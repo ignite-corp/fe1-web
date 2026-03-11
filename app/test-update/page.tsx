@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { jiraFetch } from '@/lib/jira-fetch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -57,9 +58,8 @@ export default function TestUpdatePage() {
       }
 
       // API Routes를 통해 업데이트
-      const response = await fetch(`/api/jira/ignite/issue/${issueKey}`, {
+      const response = await jiraFetch(`/api/jira/ignite/issue/${issueKey}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fields: payload }),
       });
 

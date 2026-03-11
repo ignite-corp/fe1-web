@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { jiraFetch } from '@/lib/jira-fetch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,15 +29,16 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  JIRA_USER_LIST,
   JIRA_ENDPOINTS,
-  JIRA_USERS,
 } from '@/lib/constants/jira';
+import { useCurrentUser } from '@/contexts/user-context';
 import { jira } from '@/lib/services/jira';
 import { JiraIssue } from '@/lib/types/jira';
 import { SyncOrchestrator } from '@/lib/services/sync';
 
 export default function CreateTicketPage() {
+  const { currentUser } = useCurrentUser();
+
   // 에픽 목록
   const [fehgEpics, setFehgEpics] = useState<JiraIssue[]>([]);
   const [isLoadingEpics, setIsLoadingEpics] = useState(false);
@@ -44,7 +46,6 @@ export default function CreateTicketPage() {
   // 입력 필드
   const [selectedEpic, setSelectedEpic] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
-  const [assignee, setAssignee] = useState<string>('');
   const [estimatedTime, setEstimatedTime] = useState<string>('');
   const [estimatedTimeError, setEstimatedTimeError] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
@@ -55,18 +56,19 @@ export default function CreateTicketPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [createdTicketKey, setCreatedTicketKey] = useState<string>('');
   const [createdTicketSummary, setCreatedTicketSummary] = useState<string>('');
-  const [createdTicketAssignee, setCreatedTicketAssignee] =
-    useState<string>('');
 
   // 동기화 상태
   const [isSyncingTicket, setIsSyncingTicket] = useState(false);
 
-  // FEHG 완료되지 않은 에픽 조회 (페이지 로드 시)
+  // 소속팀 기준 프로젝트 키
+  const sourceProject = currentUser?.sourceProject || 'FEHG';
+
+  // 기준 프로젝트의 완료되지 않은 에픽 조회 (페이지 로드 시)
   useEffect(() => {
     const loadEpics = async () => {
       setIsLoadingEpics(true);
       try {
-        const result = await jira.ignite.getFEHGIncompleteEpics();
+        const result = await jira.ignite.getFEHGIncompleteEpics(sourceProject);
         if (result.success && result.data) {
           setFehgEpics(result.data.issues);
         } else {
@@ -80,7 +82,7 @@ export default function CreateTicketPage() {
     };
 
     loadEpics();
-  }, []);
+  }, [sourceProject]);
 
   // 최초추정치 유효성 검증 (예: 3d, 1m, 2w, 1.5h)
   const validateEstimatedTime = (value: string): boolean => {
@@ -112,8 +114,8 @@ export default function CreateTicketPage() {
       toast.error('티켓 제목을 입력해주세요.');
       return;
     }
-    if (!assignee) {
-      toast.error('담당자를 선택해주세요.');
+    if (!currentUser) {
+      toast.error('사용자가 선택되지 않았습니다.');
       return;
     }
     // 최초추정치 입력했으면 형식 검증
@@ -127,22 +129,16 @@ export default function CreateTicketPage() {
     setCreatedTicketSummary('');
 
     try {
-      // 사용자 정보 가져오기
-      const userInfo = JIRA_USER_LIST.find((user) => user.name === assignee);
-      if (!userInfo) {
-        toast.error('담당자 정보를 찾을 수 없습니다.');
-        return;
-      }
 
       toast.info(`"${summary}" 티켓 생성을 시작합니다...`);
 
       // 티켓 생성 payload (필수 필드)
       const fields: Record<string, unknown> = {
-        project: { key: 'FEHG' },
+        project: { key: sourceProject },
         summary,
         issuetype: { name: '작업' },
         parent: { key: selectedEpic }, // Epic Link
-        assignee: { accountId: userInfo.igniteAccountId },
+        assignee: { accountId: currentUser.igniteAccountId },
       };
 
       // 선택 필드 추가
@@ -178,9 +174,8 @@ export default function CreateTicketPage() {
       const payload = { fields };
 
       // API 호출
-      const response = await fetch('/api/jira/ignite/issue', {
+      const response = await jiraFetch('/api/jira/ignite/issue', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -190,14 +185,12 @@ export default function CreateTicketPage() {
         const ticketKey = result.data.key;
         setCreatedTicketKey(ticketKey);
         setCreatedTicketSummary(summary);
-        setCreatedTicketAssignee(assignee); // 생성된 티켓의 담당자 정보 저장
         toast.success(`티켓이 생성되었습니다! (${ticketKey})`, {
           duration: 5000,
         });
 
         // 입력 필드 초기화 (다음 티켓 생성을 위해)
         setSummary('');
-        setAssignee('');
         setEstimatedTime('');
         setStartDate('');
         setEndDate('');
@@ -269,27 +262,19 @@ export default function CreateTicketPage() {
       return;
     }
 
-    if (!createdTicketAssignee) {
-      toast.error('담당자 정보를 찾을 수 없습니다.');
+    if (!currentUser) {
+      toast.error('사용자가 선택되지 않았습니다.');
       return;
     }
 
     // 티켓 키에서 번호 추출 (예: FEHG-1234 → 1234)
-    const ticketIdMatch = createdTicketKey.match(/FEHG-(\d+)/);
+    const ticketIdMatch = createdTicketKey.match(new RegExp(`${sourceProject}-(\\d+)`));
     if (!ticketIdMatch) {
       toast.error('올바르지 않은 티켓 키 형식입니다.');
       return;
     }
 
     const ticketId = ticketIdMatch[1];
-
-    // 사용자 정보 조회 (생성 시 저장된 담당자 사용)
-    const userInfo =
-      JIRA_USERS[createdTicketAssignee as keyof typeof JIRA_USERS];
-    if (!userInfo) {
-      toast.error('사용자 정보를 찾을 수 없습니다.');
-      return;
-    }
 
     setIsSyncingTicket(true);
 
@@ -301,7 +286,7 @@ export default function CreateTicketPage() {
 
       // 티켓 지정 모드로 동기화 실행
       const summary = await orchestrator.execute({
-        assigneeAccountId: userInfo.igniteAccountId,
+        assigneeAccountId: currentUser.igniteAccountId,
         ticketId,
         chunkSize: 15,
       });
@@ -347,9 +332,9 @@ export default function CreateTicketPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl font-bold">FEHG 티켓 생성</h1>
+              <h1 className="text-2xl font-bold">{sourceProject} 티켓 생성</h1>
               <p className="text-sm text-muted-foreground">
-                새로운 FEHG 티켓을 생성합니다
+                새로운 {sourceProject} 티켓을 생성합니다
               </p>
             </div>
           </div>
@@ -360,12 +345,7 @@ export default function CreateTicketPage() {
                 배포 템플릿
               </Button>
             </Link>
-            <Link href="/create-epic">
-              <Button variant="outline" size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                에픽 생성
-              </Button>
-            </Link>
+            {/* @deprecated 에픽 생성 - 관리자 페이지로 이전 예정 */}
           </div>
         </div>
       </header>
@@ -450,27 +430,25 @@ export default function CreateTicketPage() {
                   </p>
                 </div>
 
-                {/* 담당자 */}
+                {/* 담당자 (읽기 전용) */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium flex items-center gap-1">
                     담당자
-                    <span className="text-red-500">*</span>
                   </label>
-                  <Select value={assignee} onValueChange={setAssignee}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="담당자를 선택하세요" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {JIRA_USER_LIST.map((user) => (
-                        <SelectItem
-                          key={user.igniteAccountId}
-                          value={user.name}
-                        >
-                          {user.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                    {currentUser ? (
+                      <>
+                        <span className="font-medium">{currentUser.name}</span>
+                        {currentUser.teamName && (
+                          <span className="text-xs text-muted-foreground rounded-full bg-secondary px-2 py-0.5">
+                            {currentUser.teamName}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">사용자를 먼저 선택해주세요</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* 관련 업무 링크 */}

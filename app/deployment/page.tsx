@@ -435,12 +435,7 @@ export default function DeploymentPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href="/create-epic">
-              <Button variant="outline" size="sm">
-                <Plus className="mr-2 h-4 w-4" />
-                에픽 생성
-              </Button>
-            </Link>
+            {/* @deprecated 에픽 생성 - 관리자 페이지로 이전 예정 */}
             <Link href="/create-ticket">
               <Button variant="outline" size="sm">
                 <Plus className="mr-2 h-4 w-4" />
@@ -760,6 +755,9 @@ export default function DeploymentPage() {
                 담당자와 기준 월을 선택하여 티켓을 조회하고 배포태그를
                 적용합니다
               </CardDescription>
+              <p className="text-xs text-amber-600 mt-1">
+                현재는 FEHG 티켓만 지원합니다
+              </p>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* 프로젝트 선택 */}

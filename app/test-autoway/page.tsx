@@ -63,7 +63,9 @@ export default function AutowayTestPage() {
   const normalizedIssueKey = useMemo(() => {
     if (!issueInput.trim()) return '';
     const trimmed = issueInput.trim().toUpperCase();
-    return trimmed.startsWith('FEHG-') ? trimmed : `FEHG-${trimmed}`;
+    // PROJ-123 형식이면 그대로, 숫자만이면 FEHG- 붙임
+    if (/^[A-Z]+-\d+$/.test(trimmed)) return trimmed;
+    return `FEHG-${trimmed}`;
   }, [issueInput]);
 
   const highlightLog = (message: string) => {

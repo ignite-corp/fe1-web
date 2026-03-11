@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Copy, Check, Home, Plus, Network, FileText } from 'lucide-react';
+import { Copy, Check, Home, Plus, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 import type { DeployFormData, ProjectType, DeployType } from './types';
@@ -166,12 +166,7 @@ export default function TemplatesPage() {
                 홈으로
               </Button>
             </Link>
-            <Link href="/flow-chart">
-              <Button variant="outline">
-                <Network className="mr-2 h-4 w-4" />
-                Flow Chart
-              </Button>
-            </Link>
+            {/* @deprecated Flow Chart - 관리자 페이지로 이전 예정 */}
             <Link href="/create-ticket">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
