@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Pencil, Trash2, Check, Loader2, Search, CircleCheck, CircleX, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, Loader2, Search, CircleCheck, CircleX, RotateCcw, AlertTriangle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useCurrentUser } from '@/contexts/user-context';
@@ -409,7 +409,7 @@ export default function UsersPage() {
                 Email <span className="text-destructive">*</span>
               </label>
               <Input
-                placeholder="user@example.com"
+                placeholder={instance === 'ignite' ? 'example@ignite.co.kr' : 'zs12345@hyundai-partners.com'}
                 value={form[emailField]}
                 onChange={(e) => updateForm(emailField, e.target.value)}
                 disabled={verifying}
@@ -428,6 +428,15 @@ export default function UsersPage() {
               />
             </div>
           </div>
+          <a
+            href="https://ignitecorp.atlassian.net/wiki/spaces/IF/pages/2262237262/FE1"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            <ExternalLink className="h-3 w-3" />
+            토큰 설정 가이드 바로가기
+          </a>
           {/* HMG에만 사번 필드 */}
           {instance === 'hmg' && (
             <div className="space-y-1">
