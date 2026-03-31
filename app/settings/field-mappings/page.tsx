@@ -125,6 +125,14 @@ function isTypeCompatible(sourceType: string, targetType: string): boolean {
   return false;
 }
 
+function getTransformType(sourceField: string, targetField: string): string {
+  // customfield_10020 Sprint
+  if (sourceField === 'customfield_10020' && targetField === 'customfield_10020') {
+    return 'sprint_map';
+  }
+  return 'copy';
+}
+
 // ── 헬퍼 컴포넌트 ──
 
 function InstanceBadge({ instance }: { instance: 'ignite' | 'hmg' }) {
@@ -780,7 +788,7 @@ export default function FieldMappingsPage() {
               source_field_name: m.sourceFieldName,
               target_field: m.targetField,
               target_field_name: m.targetFieldName,
-              transform_type: 'copy',
+              transform_type: getTransformType(m.sourceField, m.targetField),
             }))
           );
 

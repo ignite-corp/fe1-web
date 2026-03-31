@@ -59,7 +59,7 @@ export async function mapFieldsForIgniteProject(
     );
 
     if (mappedSprintId) {
-      fields[IGNITE_CUSTOM_FIELDS.SPRINT] = mappedSprintId;
+      fields[IGNITE_CUSTOM_FIELDS.SPRINT] = { id: mappedSprintId };
     }
   }
 

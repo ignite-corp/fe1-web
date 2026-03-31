@@ -81,8 +81,8 @@ async function getBoardId(projectKey: string): Promise<number | null> {
  * 예: "FEHG 2511" → "2511", "PROJ 2511" → "2511"
  */
 function extractSprintPeriod(sprintName: string): string | null {
-  const match = sprintName.match(/\w+\s+(\d{4})/);
-  return match ? match[1] : null;
+  const parts = sprintName.split(' ');
+  return parts.length > 0 ? parts[parts.length - 1] : null;
 }
 
 /**
