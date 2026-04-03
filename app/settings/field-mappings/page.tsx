@@ -34,6 +34,7 @@ import {
 import { toast } from 'sonner';
 import { db } from '@/lib/db';
 import { jiraFetch } from '@/lib/jira-fetch';
+import { IGNITE_CUSTOM_FIELDS } from '@/lib/constants/jira';
 
 // ── 타입 ──
 
@@ -123,6 +124,14 @@ function isTypeCompatible(sourceType: string, targetType: string): boolean {
   }
 
   return false;
+}
+
+function getTransformType(sourceField: string, targetField: string): string {
+  // Sprint 필드
+  if (sourceField === IGNITE_CUSTOM_FIELDS.SPRINT && targetField === IGNITE_CUSTOM_FIELDS.SPRINT) {
+    return 'sprint_map';
+  }
+  return 'copy';
 }
 
 // ── 헬퍼 컴포넌트 ──
@@ -780,7 +789,7 @@ export default function FieldMappingsPage() {
               source_field_name: m.sourceFieldName,
               target_field: m.targetField,
               target_field_name: m.targetFieldName,
-              transform_type: 'copy',
+              transform_type: getTransformType(m.sourceField, m.targetField),
             }))
           );
 
