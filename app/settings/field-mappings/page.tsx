@@ -34,6 +34,7 @@ import {
 import { toast } from 'sonner';
 import { db } from '@/lib/db';
 import { jiraFetch } from '@/lib/jira-fetch';
+import { IGNITE_CUSTOM_FIELDS } from '@/lib/constants/jira';
 
 // ── 타입 ──
 
@@ -126,8 +127,8 @@ function isTypeCompatible(sourceType: string, targetType: string): boolean {
 }
 
 function getTransformType(sourceField: string, targetField: string): string {
-  // customfield_10020 Sprint
-  if (sourceField === 'customfield_10020' && targetField === 'customfield_10020') {
+  // Sprint 필드
+  if (sourceField === IGNITE_CUSTOM_FIELDS.SPRINT && targetField === IGNITE_CUSTOM_FIELDS.SPRINT) {
     return 'sprint_map';
   }
   return 'copy';

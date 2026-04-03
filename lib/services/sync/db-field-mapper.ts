@@ -61,8 +61,7 @@ export async function mapFieldsFromDb(
 
     switch (transform_type) {
       case 'copy': {
-        // 단순 복사 (스프린트 필드는 sprint_map으로 처리해야 하므로 copy 금지)
-        if (source_field === 'customfield_10020') break;
+        // 단순 복사
         const value = getFieldValue(fehgTicket, fehgFields, source_field);
         if (value !== undefined && value !== null) {
           // assignee는 accountId 형태로 래핑
