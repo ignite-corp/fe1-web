@@ -78,10 +78,10 @@ async function getBoardId(projectKey: string): Promise<number | null> {
 
 /**
  * 소스 프로젝트 스프린트 이름에서 기간 추출
- * 예: "FEHG 2511" → "2511", "MY PROJECT NAME 2511" → "2511"
+ * 예: "FEHG 2511" → "2511", "DEVBE1 202511" → "202511"
  */
 function extractSprintPeriod(sprintName: string): string | null {
-  const match = sprintName.match(/(\d+)\s*$/);
+  const match = sprintName.match(/(?<=\s)(\d+)\s*$/);
   return match ? match[1] : null;
 }
 
