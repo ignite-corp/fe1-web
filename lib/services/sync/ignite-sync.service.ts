@@ -99,7 +99,9 @@ export class IgniteSyncService {
     syncProfileId?: string
   ): Promise<SyncResult> {
     try {
-      this.logger.info(`${targetKey}: 업데이트 시작...${syncProfileId ? ' (DB 매핑)' : ''}`);
+      this.logger.info(
+        `${targetKey}: 업데이트 시작...${syncProfileId ? ' (DB 매핑)' : ''}`
+      );
 
       // 1. 필드 매핑 (DB 기반 또는 하드코딩)
       const mappedFields = syncProfileId
@@ -118,12 +120,8 @@ export class IgniteSyncService {
 
       this.logger.success(`${targetKey}: 필드 업데이트 완료`);
 
-      // 3. 상태 동기화 (HDD는 권한 문제로 제외)
-      if (targetProject !== 'HDD') {
-        await this.syncIgniteStatus(fehgTicket, targetKey);
-      } else {
-        this.logger.info(`${targetKey}: 상태 동기화 스킵 (HDD는 제외)`);
-      }
+      // 3. 상태 동기화
+      await this.syncIgniteStatus(fehgTicket, targetKey, targetProject);
 
       return {
         fehgKey: fehgTicket.key,
@@ -154,7 +152,8 @@ export class IgniteSyncService {
    */
   private async syncIgniteStatus(
     fehgTicket: JiraIssue,
-    targetKey: string
+    targetKey: string,
+    targetProject: 'KQ' | 'HDD' | 'HB'
   ): Promise<void> {
     const fehgStatusId = fehgTicket.fields.status?.id;
     if (!fehgStatusId) return;
@@ -169,7 +168,26 @@ export class IgniteSyncService {
 
       const currentStatusId = targetIssue.data.fields.status?.id;
       if (!currentStatusId) {
-        this.logger.warning(`${targetKey}: 현재 상태 ID 없음 - 상태 동기화 스킵`);
+        this.logger.warning(
+          `${targetKey}: 현재 상태 ID 없음 - 상태 동기화 스킵`
+        );
+        return;
+      }
+
+      // KQ는 Verify in QA 상태에서 QA가 수동으로 변경하기 때문에 이 상태에서는 동기화 스킵
+      if (
+        targetProject === 'KQ' &&
+        targetIssue.data.fields.status?.name === 'Verify in QA'
+      ) {
+        this.logger.info(
+          `${targetKey}: KQ 상태가 "Verify in QA" → 동기화 스킵`
+        );
+        return;
+      }
+
+      // HDD는 상태 동기화 권한 문제로 인해 스킵
+      if (targetProject === 'HDD') {
+        this.logger.info(`${targetKey}: HDD → 상태 동기화 권한 문제로 스킵`);
         return;
       }
 
